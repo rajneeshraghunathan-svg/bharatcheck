@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     const text = data.content?.map(b => b.text || "").join("") || "";
-    const clean = text.replace(/```json|```/g, "").trim();
+    const clean = text.replace(/```json\n?|```\n?/g, "").trim();
 
     const parsed = JSON.parse(clean);
     res.status(200).json(parsed);
