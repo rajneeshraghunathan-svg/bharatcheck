@@ -43,11 +43,16 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: data.error.message });
     }
 
-    const text = data.content?.map(b => b.text || "").join("") || "";
-    const clean = text.replace(/```json\n?|```\n?/g, "").trim();
+const text = data.content?.map(b => b.text || "").join("") || "";
+console.log("Raw text from Claude:", text);
 
-    const parsed = JSON.parse(clean);
-    res.status(200).json(parsed);
+// Aggressively extract JSON object
+const jsonMatch = text.match(/\{[\s\S]*\}/);
+if (!jsonMatch) {
+  return res.status(500).json({ error: "No JSON found in response" });
+}
+
+const parsed = JSON.parse(jsonMatch[0]);
 
   } catch (error) {
     console.error("Handler error:", error.message);
