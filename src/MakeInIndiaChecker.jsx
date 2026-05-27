@@ -519,24 +519,16 @@ export default function App() {
     setGdpBarWidth(0);
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: `Product: ${q}` }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.map(b => b.text || "").join("") || "";
-      const cleaned = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
+      
       setResult(parsed);
     } catch (e) {
       setError("Could not analyze this product. Please try again.");
-    } finally {
+    } finally {const res = await fetch("/api/analyze", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ product: q })
+});
+const parsed = await res.json();
       setLoading(false);
     }
   };
