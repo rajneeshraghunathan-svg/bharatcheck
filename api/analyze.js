@@ -8,24 +8,49 @@ export default async function handler(req, res) {
 
   const { product } = req.body;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system: `You are an expert on Indian manufacturing and Make in India. Respond ONLY with valid JSON — no markdown, no preamble. Structure: {"product":"...","isIndian":true/false,"originCountry":"...","originDetails":"...","indianAlternative":{"name":"...","brand":"...","emoji":"...","availability":"...","priceRange":"..."},"comparison":[{"aspect":"...","foreign":"...","indian":"..."}],"economicInsights":[{"title":"...","detail":"..."}],"gdpImpactScore":50,"makeInIndiaRating":"HIGH/MEDIUM/LOW"}. If product is Indian set indianAlternative to null and comparison to [].`,
-      messages: [{ role: "user", content: `Product: ${product}` }]
-    })
-  });
+  if (!product) {
+    return res.status(400).json({ error: "No product provided" });
+  }
 
-  const data = await response.json();
-  const text = data.content?.map(b => b.text || "").join("") || "";
-  const clean = text.replace(/```json|```/g, "").trim();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "API key not configured" });
+  }
 
-  res.status(200).json(JSON.parse(clean));
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
+        system: `You are an expert on Indian manufacturing and Make in India. Respond ONLY with valid JSON — no markdown, no backticks, no explanation. Use exactly this structure: {"product":"...","isIndian":true,"originCountry":"...","originDetails":"...","indianAlternative":{"name":"...","brand":"...","emoji":"...","availability":"...","priceRange":"..."},"comparison":[{"aspect":"Price","foreign":"...","indian":"..."},{"aspect":"Quality","foreign":"...","indian":"..."},{"aspect":"Support","foreign":"...","indian":"..."},{"aspect":"Jobs","foreign":"...","indian":"..."},{"aspect":"Ecosystem","foreign":"...","indian":"..."}],"economicInsights":[{"title":"...","detail":"..."},{"title":"...","detail":"..."},{"title":"...","detail":"..."}],"gdpImpactScore":75,"makeInIndiaRating":"HIGH"}. If product is Indian set indianAlternative to null and comparison to [].`,
+        messages: [{ role: "user", content: `Analyze this product: ${product}` }]
+      })
+    });
+
+    const rawText = await response.text();
+    console.log("Anthropic raw response:", rawText);
+
+    const data = JSON.parse(rawText);
+
+    if (data.error) {
+      console.error("Anthropic API error:", data.error);
+      return res.status(500).json({ error: data.error.message });
+    }
+
+    const text = data.content?.map(b => b.text || "").join("") || "";
+    const clean = text.replace(/```json|```/g, "").trim();
+
+    const parsed = JSON.parse(clean);
+    res.status(200).json(parsed);
+
+  } catch (error) {
+    console.error("Handler error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
 }
